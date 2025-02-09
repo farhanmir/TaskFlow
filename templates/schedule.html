@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Schedule - Task Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/styles.css') }}">
+    <style>
+        .subtask-list {
+            margin-left: 20px;
+            border-left: 2px solid #e0e0e0;
+            padding-left: 15px;
+        }
+        .subtask-item {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .subtask-title {
+            font-size: 0.9em;
+            color: #555;
+        }
+        .subtask-deadline {
+            font-size: 0.8em;
+            color: #666;
+        }
+        .task-priority {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        .priority-high { background: #ffe0e0; color: #d32f2f; }
+        .priority-medium { background: #fff3e0; color: #f57c00; }
+        .priority-low { background: #e8f5e9; color: #388e3c; }
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>My Schedule</h1>
+            <nav>
+                <a href="/" class="btn">+ New Task</a>
+                <a href="/profile" class="btn">Profile</a>
+            </nav>
+        </header>
+        
+        <div id="schedule-grid" class="schedule-grid">
+            <!-- Tasks will be dynamically loaded here -->
+        </div>
+    </div>
+
+    <script>
+        async function loadTasks() {
+            try {
+                const response = await fetch('/api/get-tasks');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch tasks');
+                }
+                const tasks = await response.json();
+
+                const scheduleGrid = document.getElementById('schedule-grid');
+                scheduleGrid.innerHTML = '';
+
+                tasks.forEach(task => {
+                    const dayCard = document.createElement('div');
+                    dayCard.className = 'day-card';
+
+                    // Create task header with title and priority
+                    const taskHeader = document.createElement('div');
+                    taskHeader.className = 'task-header';
+
+                    const taskTitle = document.createElement('h2');
+                    taskTitle.textContent = task.title;
+                    
+                    const taskPriority = document.createElement('span');
+                    taskPriority.className = `task-priority priority-${task.priority.toLowerCase()}`;
+                    taskPriority.textContent = task.priority;
+                    
+                    taskHeader.appendChild(taskTitle);
+                    taskHeader.appendChild(taskPriority);
+                    dayCard.appendChild(taskHeader);
+
+                    // Create description section
+                    const taskDescription = document.createElement('p');
+                    taskDescription.className = 'task-description';
+                    taskDescription.textContent = task.description;
+                    dayCard.appendChild(taskDescription);
+
+                    // Create deadline section
+                    const taskDeadline = document.createElement('div');
+                    taskDeadline.className = 'task-deadline';
+                    taskDeadline.textContent = `Deadline: ${new Date(task.deadline).toLocaleDateString()}`;
+                    dayCard.appendChild(taskDeadline);
+
+                    // Create subtasks section
+                    if (task.subtasks && task.subtasks.length > 0) {
+                        const subtaskList = document.createElement('div');
+                        subtaskList.className = 'subtask-list';
+
+                        task.subtasks.forEach(subtask => {
+                            const subtaskItem = document.createElement('div');
+                            subtaskItem.className = 'subtask-item';
+
+                            const subtaskContent = document.createElement('div');
+                            subtaskContent.className = 'subtask-content';
+
+                            const subtaskTitle = document.createElement('div');
+                            subtaskTitle.className = 'subtask-title';
+                            subtaskTitle.textContent = subtask.title;
+                            subtaskContent.appendChild(subtaskTitle);
+
+                            if (subtask.deadline) {
+                                const subtaskDeadline = document.createElement('div');
+                                subtaskDeadline.className = 'subtask-deadline';
+                                subtaskDeadline.textContent = new Date(subtask.deadline).toLocaleDateString();
+                                subtaskContent.appendChild(subtaskDeadline);
+                            }
+
+                            const subtaskStatus = document.createElement('span');
+                            subtaskStatus.className = `task-status status-${subtask.status?.toLowerCase() || 'pending'}`;
+                            subtaskStatus.textContent = subtask.status || 'Pending';
+
+                            subtaskItem.appendChild(subtaskContent);
+                            subtaskItem.appendChild(subtaskStatus);
+                            subtaskList.appendChild(subtaskItem);
+                        });
+
+                        dayCard.appendChild(subtaskList);
+                    }
+
+                    scheduleGrid.appendChild(dayCard);
+                });
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+                const scheduleGrid = document.getElementById('schedule-grid');
+                scheduleGrid.innerHTML = `
+                    <div class="error-message">
+                        Failed to load tasks. Please try refreshing the page.
+                    </div>
+                `;
+            }
+        }
+
+        // Add error handling for DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTasks().catch(error => {
+                console.error('Failed to initialize tasks:', error);
+            });
+        });
+
+        // Add auto-refresh functionality
+        setInterval(() => {
+            loadTasks().catch(error => {
+                console.error('Failed to refresh tasks:', error);
+            });
+        }, 300000); // Refresh every 5 minutes
+    </script>
+</body>
+</html>

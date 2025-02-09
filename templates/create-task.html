@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Task - Task Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+    <style>
+        .list-item { display: flex; align-items: center; margin: 5px 0; }
+        .list-item input { margin-right: 10px; }
+        .remove-btn { background-color: #ff4d4d; color: white; border: none; padding: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>Create New Task</h1>
+                <nav>
+                    <a href="/schedule" class="btn">Back to Schedule</a>
+                    <a href="/profile" class="btn">Profile</a>
+                </nav>
+            </div>
+        </header>
+
+        <div class="form-container">
+            <form id="task-form" class="task-form">
+                <div class="form-group">
+                    <label>Task Title</label>
+                    <input type="text" id="task-title" placeholder="Enter task title" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="task-desc" rows="4" placeholder="Task details..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Deadline</label>
+                        <input type="date" id="task-deadline" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select id="task-priority">
+                            <option>High</option>
+                            <option>Medium</option>
+                            <option>Low</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Subtasks</label>
+                    <div id="subtask-list"></div>
+                    <div class="list-controls">
+                        <input type="text" id="new-subtask" placeholder="Enter subtask">
+                        <button type="button" onclick="addSubtask()">Add Subtask</button>
+                    </div>
+                </div>
+
+                <div class="preview-container" style="display: none;">
+                    <h3>Task Preview</h3>
+                    <table class="preview-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preview-body"></tbody>
+                    </table>
+                    <h3>Subtasks</h3>
+                    <table class="preview-table">
+                        <thead>
+                            <tr>
+                                <th>Subtask</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subtask-preview-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="btn btn-preview" onclick="showPreview()">Preview</button>
+                    <button type="submit" class="btn btn-submit">Submit Task</button>
+                </div>
+            </form>
+            <div id="api-response" class="api-response"></div>
+        </div>
+    </div>
+
+    <script>
+        let subtasks = [];
+
+        function addSubtask() {
+            const subtaskInput = document.getElementById('new-subtask');
+            const subtaskText = subtaskInput.value.trim();
+            
+            if (subtaskText) {
+                subtasks.push(subtaskText);
+                renderSubtasks();
+                subtaskInput.value = '';
+            }
+        }
+
+        function renderSubtasks() {
+            const subtaskList = document.getElementById('subtask-list');
+            subtaskList.innerHTML = '';
+            
+            subtasks.forEach((subtask, index) => {
+                const listItem = document.createElement('div');
+                listItem.classList.add('list-item');
+                listItem.innerHTML = `
+                    <span>${subtask}</span>
+                    <button type="button" class="remove-btn" onclick="removeSubtask(${index})">Remove</button>
+                `;
+                subtaskList.appendChild(listItem);
+            });
+        }
+
+        function removeSubtask(index) {
+            subtasks.splice(index, 1);
+            renderSubtasks();
+        }
+
+        function showPreview() {
+            const previewData = {
+                'Title': document.getElementById('task-title').value,
+                'Description': document.getElementById('task-desc').value,
+                'Deadline': document.getElementById('task-deadline').value,
+                'Priority': document.getElementById('task-priority').value
+            };
+
+            const previewBody = document.getElementById('preview-body');
+            previewBody.innerHTML = '';
+            
+            Object.entries(previewData).forEach(([key, value]) => {
+                const row = `
+                    <tr>
+                        <td>${key}</td>
+                        <td>${value}</td>
+                    </tr>
+                `;
+                previewBody.insertAdjacentHTML('beforeend', row);
+            });
+
+            // Update subtask preview
+            const subtaskPreviewBody = document.getElementById('subtask-preview-body');
+            subtaskPreviewBody.innerHTML = '';
+            
+            subtasks.forEach((subtask, index) => {
+                const row = `
+                    <tr>
+                        <td>${index + 1}. ${subtask}</td>
+                    </tr>
+                `;
+                subtaskPreviewBody.insertAdjacentHTML('beforeend', row);
+            });
+            
+            document.querySelector('.preview-container').style.display = 'block';
+        }
+
+        document.getElementById('task-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                title: document.getElementById('task-title').value,
+                description: document.getElementById('task-desc').value,
+                deadline: document.getElementById('task-deadline').value,
+                priority: document.getElementById('task-priority').value,
+                subtasks: subtasks.map(subtask => ({ title: subtask }))
+            };
+
+            try {
+                const response = await fetch('/api/create-task', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+                document.getElementById('api-response').innerHTML = `
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+
+                if (response.ok) {
+                    setTimeout(() => {
+                        window.location.href = '/schedule';
+                    }, 2000);
+                } else {
+                    alert('Failed to create task');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to create task');
+            }
+        });
+    </script>
+</body>
+</html>
